@@ -5,3 +5,5 @@ pandas
 opencv-python-headless
 pdfplumber
 openpyxl
+pdf2image
+pilllow
