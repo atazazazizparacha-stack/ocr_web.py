@@ -66,7 +66,7 @@ if uploaded_file:
                 for line in full_text.split('\n'):
                     if line.strip():
                         p = doc.add_paragraph(line)
-                        # Urdu/Arabic characters check (Unicode > 1200)
+                        # Urdu/Arabic check (Unicode > 1200)
                         if any(ord(c) > 1200 for c in line):
                             p.paragraph_format.alignment = 2 # Right Align
                         else:
@@ -75,6 +75,7 @@ if uploaded_file:
                 word_buf = BytesIO()
                 doc.save(word_buf)
                 
+                # Download Button with correct syntax
                 st.download_button(
                     label="📥 Download Fixed Word File",
                     data=word_buf.getvalue(),
