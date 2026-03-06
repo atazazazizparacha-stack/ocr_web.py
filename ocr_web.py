@@ -4,71 +4,70 @@ import numpy as np
 from PIL import Image
 import fitz  # PyMuPDF
 from docx import Document
-from docx.shared import Pt
-import pandas as pd
 from io import BytesIO
 
-# Page Configuration
-st.set_page_config(page_title="AI Multi-Lingual Pro Scanner", layout="wide")
+# Basic Page Setup
+st.set_page_config(page_title="AI Scanner Pro", layout="wide")
 
-st.title("🚀 Smart AI Scanner (Urdu, Arabic & English)")
-st.write("PDF/Images ko scan karein. Word file ab RTL support ke saath generate hogi.")
+st.title("🚀 Smart AI Scanner")
+st.write("PDF/Images scan karein aur Word file download karein.")
 
-# Sidebar Settings
+# Settings Sidebar
 with st.sidebar:
     st.header("Settings")
-    languages = st.multiselect("Zaban select karein:", ["en", "ur", "ar"], default=["en", "ur"])
-    zoom = st.slider("Scan Quality (Higher is better)", 1.0, 4.0, 2.5)
+    langs = st.multiselect("Zaban (Languages):", ["en", "ur", "ar"], default=["en", "ur"])
+    zoom_val = st.slider("Quality", 1.0, 3.0, 2.0)
 
 uploaded_file = st.file_uploader("File select karein", type=["pdf", "png", "jpg", "jpeg"])
 
 if uploaded_file:
+    # OCR Reader Load karna
     @st.cache_resource
-    def load_reader(langs):
-        return easyocr.Reader(langs)
+    def get_reader(l):
+        return easyocr.Reader(l)
     
-    reader = load_reader(languages)
+    reader = get_reader(langs)
     full_text = ""
 
-    if st.button("Scanning Shuru Karein"):
-        with st.spinner("AI scan kar raha hai..."):
-            if uploaded_file.type == "application/pdf":
-                doc_pdf = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-                for page_num in range(len(doc_pdf)):
-                    page = doc_pdf.load_page(page_num)
-                    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
-                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    st.image(img, caption=f"Page {page_num + 1}", width=400)
-                    
+    if st.button("Scan Shuru Karein"):
+        with st.spinner("AI processing ho rahi hai..."):
+            try:
+                # PDF Processing
+                if uploaded_file.type == "application/pdf":
+                    doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+                    for page in doc:
+                        pix = page.get_pixmap(matrix=fitz.Matrix(zoom_val, zoom_val))
+                        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                        st.image(img, width=400)
+                        
+                        result = reader.readtext(np.array(img), detail=0)
+                        full_text += "\n".join(result) + "\n\n"
+                
+                # Image Processing
+                else:
+                    img = Image.open(uploaded_file)
+                    st.image(img, width=400)
                     result = reader.readtext(np.array(img), detail=0)
-                    full_text += "\n".join(result) + "\n\n"
-            else:
-                img = Image.open(uploaded_file)
-                st.image(img, width=400)
-                result = reader.readtext(np.array(img), detail=0)
-                full_text = "\n".join(result)
+                    full_text = "\n".join(result)
 
-            st.success("Scanning Mukammal!")
+                st.success("Scan Mukammal!")
 
-            # --- WORD FILE GENERATION ---
-            doc = Document()
-            # Font setting for better Urdu/Arabic display
-            style = doc.styles['Normal']
-            style.font.name = 'Arial'
-            style.font.size = Pt(12)
+                # Create Word File
+                word_doc = Document()
+                for line in full_text.split('\n'):
+                    if line.strip():
+                        p = word_doc.add_paragraph(line)
+                        # Urdu/Arabic ke liye Right Align (Simple Method)
+                        if any(ord(c) > 1200 for c in line):
+                            p.paragraph_format.alignment = 2 
+                        else:
+                            p.paragraph_format.alignment = 0
 
-            # Text ko paragraphs mein split karke add karna
-            for line in full_text.split('\n'):
-                if line.strip():
-                    p = doc.add_paragraph(line)
-                    # Simple check for RTL: Agar line mein koi Urdu/Arabic character hai
-                    if any(ord(c) > 1200 for c in line):
-                        p.paragraph_format.alignment = 2 # 2 ka matlab hai RIGHT alignment
-                    else:
-                        p.paragraph_format.alignment = 0 # 0 ka matlab hai LEFT alignment
+                # Download Button
+                buf = BytesIO()
+                word_doc.save(buf)
+                st.download_button("📥 Download Word File", buf.getvalue(), "scanned_result.docx")
+                st.text_area("Preview", full_text, height=300)
 
-            word_buf = BytesIO()
-            doc.save(word_buf)
-            
-            st.download_button("📥 Download Scanned Word File", data=word_buf.getvalue(), file_name="ai_scanner_result.docx")
-            st.text_area("Live Preview", full_text, height=300)
+            except Exception as e:
+                st.error(f"Ek masla aaya hai: {e}")
