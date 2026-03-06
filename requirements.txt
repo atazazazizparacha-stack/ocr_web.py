@@ -1,1 +1,5 @@
-streamlit, easyocr, python-docx, pandas)
+streamlit
+easyocr
+python-docx
+pandas
+opencv-python-headless
