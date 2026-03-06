@@ -3,7 +3,5 @@ easyocr
 python-docx
 pandas
 opencv-python-headless
-pdfplumber
-openpyxl
-pdf2image
-pilllow
+pymupdf
+pillow
