@@ -3,3 +3,4 @@ easyocr
 python-docx
 pandas
 opencv-python-headless
+pdfplumber
