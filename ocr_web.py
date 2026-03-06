@@ -62,4 +62,5 @@ if uploaded_files:
             st.download_button("📥 Download All in Word", bio.getvalue(), "multi_scan.docx")
         with col2:
             df = pd.DataFrame({"Content": all_extracted_text})
+
             st.download_button("📊 Download All in Excel", df.to_csv(index=False).encode('utf-8'), "multi_scan.csv")
