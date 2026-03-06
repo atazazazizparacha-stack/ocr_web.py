@@ -4,70 +4,84 @@ import numpy as np
 from PIL import Image
 import fitz  # PyMuPDF
 from docx import Document
+from docx.shared import Pt
+import pandas as pd
 from io import BytesIO
 
-# Basic Page Setup
-st.set_page_config(page_title="AI Scanner Pro", layout="wide")
+# --- Page Config ---
+st.set_page_config(page_title="AI Multi-Lingual Pro Scanner", layout="wide")
 
-st.title("🚀 Smart AI Scanner")
-st.write("PDF/Images scan karein aur Word file download karein.")
+st.title("🚀 Smart AI Scanner (Urdu, Arabic & English)")
+st.write("PDF/Images ko scan karein. Word file ab RTL (Right-to-Left) support ke saath generate hogi.")
 
-# Settings Sidebar
+# --- Sidebar Settings ---
 with st.sidebar:
     st.header("Settings")
-    langs = st.multiselect("Zaban (Languages):", ["en", "ur", "ar"], default=["en", "ur"])
-    zoom_val = st.slider("Quality", 1.0, 3.0, 2.0)
+    languages = st.multiselect("Zaban select karein (Languages):", ["en", "ur", "ar"], default=["en", "ur"])
+    zoom = st.slider("Scan Quality (Higher is better/slower)", 1.0, 4.0, 2.5)
+    st.info("Urdu/Arabic ke liye Quality ko 2.5 ya usse zyada rakhein.")
 
-uploaded_file = st.file_uploader("File select karein", type=["pdf", "png", "jpg", "jpeg"])
+uploaded_file = st.file_uploader("File select karein (PDF, JPG, PNG)", type=["pdf", "png", "jpg", "jpeg"])
 
 if uploaded_file:
-    # OCR Reader Load karna
+    # EasyOCR Reader ko cache mein load karna taake speed tez ho
     @st.cache_resource
-    def get_reader(l):
-        return easyocr.Reader(l)
+    def load_reader(langs):
+        return easyocr.Reader(langs)
     
-    reader = get_reader(langs)
+    reader = load_reader(languages)
     full_text = ""
 
-    if st.button("Scan Shuru Karein"):
-        with st.spinner("AI processing ho rahi hai..."):
+    if st.button("Scanning Shuru Karein"):
+        with st.spinner("AI scan kar raha hai... is mein thora waqt lag sakta hai."):
             try:
-                # PDF Processing
+                # --- PDF Processing ---
                 if uploaded_file.type == "application/pdf":
-                    doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-                    for page in doc:
-                        pix = page.get_pixmap(matrix=fitz.Matrix(zoom_val, zoom_val))
+                    doc_pdf = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+                    for page_num in range(len(doc_pdf)):
+                        page = doc_pdf.load_page(page_num)
+                        # Page ko image mein convert karna (High quality)
+                        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
                         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                        st.image(img, width=400)
                         
+                        st.image(img, caption=f"Page {page_num + 1}", width=500)
+                        
+                        # Image par OCR chalana
                         result = reader.readtext(np.array(img), detail=0)
-                        full_text += "\n".join(result) + "\n\n"
+                        page_text = "\n".join(result)
+                        full_text += f"\n--- Page {page_num + 1} ---\n" + page_text
                 
-                # Image Processing
+                # --- Image Processing ---
                 else:
                     img = Image.open(uploaded_file)
-                    st.image(img, width=400)
+                    st.image(img, width=500)
                     result = reader.readtext(np.array(img), detail=0)
                     full_text = "\n".join(result)
 
-                st.success("Scan Mukammal!")
+                st.success("Scanning Mukammal!")
 
-                # Create Word File
-                word_doc = Document()
+                # --- WORD FILE GENERATION (WITH RTL) ---
+                doc = Document()
+                style = doc.styles['Normal']
+                style.font.name = 'Arial'
+                style.font.size = Pt(12)
+
+                # Har line ko check karke align karna
                 for line in full_text.split('\n'):
                     if line.strip():
-                        p = word_doc.add_paragraph(line)
-                        # Urdu/Arabic ke liye Right Align (Simple Method)
+                        p = doc.add_paragraph(line)
+                        # Agar line mein Urdu/Arabic huroof hon (Unicode > 1200)
                         if any(ord(c) > 1200 for c in line):
-                            p.paragraph_format.alignment = 2 
+                            p.paragraph_format.alignment = 2 # 2 = RIGHT Alignment
                         else:
-                            p.paragraph_format.alignment = 0
+                            p.paragraph_format.alignment = 0 # 0 = LEFT Alignment
 
-                # Download Button
-                buf = BytesIO()
-                word_doc.save(buf)
-                st.download_button("📥 Download Word File", buf.getvalue(), "scanned_result.docx")
-                st.text_area("Preview", full_text, height=300)
-
-            except Exception as e:
-                st.error(f"Ek masla aaya hai: {e}")
+                # Download Button for Word
+                word_buf = BytesIO()
+                doc.save(word_buf)
+                st.download_button(
+                    label="📥 Download Fixed Word File",
+                    data=word_buf.getvalue(),
+                    file_name="ai_scanner_result.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
