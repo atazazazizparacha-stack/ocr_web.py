@@ -4,21 +4,21 @@ import numpy as np
 from PIL import Image
 import fitz  # PyMuPDF
 from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt
 import pandas as pd
 from io import BytesIO
 
-st.set_page_config(page_title="AI Pro Scanner (RTL Support)", layout="wide")
+# Page Configuration
+st.set_page_config(page_title="AI Multi-Lingual Pro Scanner", layout="wide")
 
-st.title("🚀 Smart AI Scanner (Urdu & Arabic Optimized)")
-st.write("PDF/Images ko scan karein. Word file ab khud-ba-khud Right-to-Left set ho jayegi.")
+st.title("🚀 Smart AI Scanner (Urdu, Arabic & English)")
+st.write("PDF/Images ko scan karein. Word file ab RTL support ke saath generate hogi.")
 
 # Sidebar Settings
 with st.sidebar:
     st.header("Settings")
     languages = st.multiselect("Zaban select karein:", ["en", "ur", "ar"], default=["en", "ur"])
-    zoom = st.slider("Scan Quality (High = Slow)", 1.0, 4.0, 2.5)
+    zoom = st.slider("Scan Quality (Higher is better)", 1.0, 4.0, 2.5)
 
 uploaded_file = st.file_uploader("File select karein", type=["pdf", "png", "jpg", "jpeg"])
 
@@ -50,23 +50,25 @@ if uploaded_file:
 
             st.success("Scanning Mukammal!")
 
-            # --- WORD FILE WITH RTL SUPPORT ---
+            # --- WORD FILE GENERATION ---
             doc = Document()
+            # Font setting for better Urdu/Arabic display
             style = doc.styles['Normal']
-            font = style.font
-            font.name = 'Arial'
-            font.size = Pt(12)
+            style.font.name = 'Arial'
+            style.font.size = Pt(12)
 
+            # Text ko paragraphs mein split karke add karna
             for line in full_text.split('\n'):
-                p = doc.add_paragraph(line)
-                # Agar line mein Urdu/Arabic characters hon to Right-to-Left kar do
-                if any(ord(c) > 1200 for c in line): 
-                    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                else:
-                    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                if line.strip():
+                    p = doc.add_paragraph(line)
+                    # Simple check for RTL: Agar line mein koi Urdu/Arabic character hai
+                    if any(ord(c) > 1200 for c in line):
+                        p.paragraph_format.alignment = 2 # 2 ka matlab hai RIGHT alignment
+                    else:
+                        p.paragraph_format.alignment = 0 # 0 ka matlab hai LEFT alignment
 
             word_buf = BytesIO()
             doc.save(word_buf)
             
-            st.download_button("📥 Download Fixed Word File", data=word_buf.getvalue(), file_name="ai_scanner_fixed.docx")
+            st.download_button("📥 Download Scanned Word File", data=word_buf.getvalue(), file_name="ai_scanner_result.docx")
             st.text_area("Live Preview", full_text, height=300)
