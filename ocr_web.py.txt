@@ -1,0 +1,65 @@
+import streamlit as st
+import easyocr
+import numpy as np
+from PIL import Image
+import pandas as pd
+from docx import Document
+from io import BytesIO
+
+st.set_page_config(page_title="Pro AI Scanner", layout="wide")
+
+st.title("🌍 Multi-Language AI Scanner (Urdu, Arabic, English)")
+st.write("Aik sath zyada photos upload karein aur Urdu/Arabic text extract karein.")
+
+# 1. Language Selection
+languages = st.multiselect(
+    "Zaban select karein (Languages):",
+    ["en", "ur", "ar"],
+    default=["en"]
+)
+
+# 2. AI Model Load
+@st.cache_resource
+def load_model(langs):
+    return easyocr.Reader(langs)
+
+reader = load_model(languages)
+
+# 3. Multiple File Uploader
+uploaded_files = st.file_uploader("Photos select karein...", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
+
+if uploaded_files:
+    all_extracted_text = []
+    
+    for uploaded_file in uploaded_files:
+        image = Image.open(uploaded_file)
+        st.image(image, caption=f"File: {uploaded_file.name}", width=300)
+        
+        if st.button(f"Scan {uploaded_file.name}"):
+            with st.spinner(f"{uploaded_file.name} parh raha hoon..."):
+                img_np = np.array(image)
+                result = reader.readtext(img_np, detail=0)
+                text_content = "\n".join(result)
+                all_extracted_text.append(f"--- File: {uploaded_file.name} ---\n{text_content}")
+                st.text_area(f"Result: {uploaded_file.name}", text_content, height=150)
+
+    # 4. Global Download (Sab files ka data aik sath)
+    if all_extracted_text:
+        final_data = "\n\n".join(all_extracted_text)
+        
+        # Word File
+        doc = Document()
+        doc.add_heading('Combined AI OCR Report', 0)
+        doc.add_paragraph(final_data)
+        bio = BytesIO()
+        doc.save(bio)
+        
+        st.divider()
+        st.subheader("📥 Combined Files Download")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button("📥 Download All in Word", bio.getvalue(), "multi_scan.docx")
+        with col2:
+            df = pd.DataFrame({"Content": all_extracted_text})
+            st.download_button("📊 Download All in Excel", df.to_csv(index=False).encode('utf-8'), "multi_scan.csv")
