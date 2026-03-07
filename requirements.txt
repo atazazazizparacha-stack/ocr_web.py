@@ -1,7 +1,9 @@
 streamlit
 easyocr
+numpy
+Pillow
+pymupdf
 python-docx
 pandas
-opencv-python-headless
-pymupdf
-pillow
+python-pptx
+xlsxwriter
