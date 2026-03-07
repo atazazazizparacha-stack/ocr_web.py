@@ -17,7 +17,8 @@ zoom = st.sidebar.slider("Quality (2.0 is Best):", 1.0, 3.0, 2.0)
 # Memory bachane ke liye model loading ko optimize kiya
 @st.cache_resource
 def get_reader(l):
-    return easyocr.Reader(l, gpu=False) # Cloud par GPU nahi hota
+    # gpu=False zaroori hai taake Streamlit Cloud crash na ho
+    return easyocr.Reader(l, gpu=False)
 
 up_file = st.file_uploader("PDF ya Image select karein", type=["pdf", "png", "jpg", "jpeg"])
 
@@ -31,6 +32,7 @@ if up_file:
                 if up_file.type == "application/pdf":
                     doc = fitz.open(stream=up_file.read(), filetype="pdf")
                     for page in doc:
+                        # Zoom ko control karne se memory kam kharch hogi
                         pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
                         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                         st.image(img, width=400)
@@ -42,12 +44,12 @@ if up_file:
                     res = reader.readtext(np.array(img), detail=0)
                     text_data = "\n".join(res)
 
-                # --- Creating Word File with Strict RTL ---
+                # --- Creating Word File with Correct Alignment ---
                 doc_file = Document()
                 for line in text_data.split('\n'):
                     if line.strip():
                         p = doc_file.add_paragraph(line)
-                        # Urdu/Arabic check for Right Alignment
+                        # Urdu/Arabic check for Right Alignment (Unicode check)
                         if any(ord(c) > 1200 for c in line):
                             p.paragraph_format.alignment = 2 # Right
                         else:
